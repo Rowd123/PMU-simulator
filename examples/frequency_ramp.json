@@ -1,0 +1,10 @@
+{
+  "f0": 50.0,
+  "fs": 4800.0,
+  "reporting_rate": 47.0,
+  "duration": 2.0,
+  "frequency": {"kind": "ramp", "value": 50.0, "time": 0.3, "final": 51.0, "duration": 1.0},
+  "amplitudes": [230.0, 230.0, 230.0],
+  "angles_deg": [0.0, -120.0, 120.0],
+  "noise_variances": [0.25, 0.25, 0.25]
+}
