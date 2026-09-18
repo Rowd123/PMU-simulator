@@ -4,3 +4,5 @@ __pycache__/
 *.npz
 *.gif
 *.mp4
+
+*.egg-info/

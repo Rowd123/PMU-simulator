@@ -37,6 +37,7 @@ class SimulationResults:
 
     def save(self, path: str | Path) -> None:
         arrays = {f.name: getattr(self, f.name) for f in fields(self) if f.name != "metadata"}
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(path, **arrays, metadata=np.array(json.dumps(self.metadata)))
 
     @classmethod

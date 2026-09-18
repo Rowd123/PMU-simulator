@@ -1,0 +1,21 @@
+{
+  "f0": 50,
+  "fs": 4800,
+  "reporting_rate": 50,
+  "duration": 10,
+  "seed": 1234,
+  "amplitudes": 230,
+  "angles_deg": [
+    0,
+    -120,
+    120
+  ],
+  "noise_variances": 0,
+  "frequency": {
+    "kind": "ramp",
+    "value": 50,
+    "time": 2,
+    "final": 51,
+    "duration": 6
+  }
+}

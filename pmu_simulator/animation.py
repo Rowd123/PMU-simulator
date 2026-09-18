@@ -4,12 +4,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter, FFMpegWriter
 from .results import SimulationResults
+from .presentation import frame_schedule, presentation_view
 
 
 def animate(result_file: str | Path, output: str | Path, fps: int = 20,
-            mode: str = "continuous", parameter_label: str = "scénario") -> None:
+            mode: str = "continuous", parameter_label: str = "scénario",
+            playback_speed: float = 1.0, view: str = "legacy") -> None:
     """Rend une vue synchronisée; ``sweep`` marque des simulations indépendantes."""
     r = SimulationResults.load(result_file)
+    frame_times = frame_schedule(r.metadata["config"]["duration"], fps, playback_speed)
+    output = Path(output)
+    if output.suffix.lower() not in (".mp4", ".gif"):
+        raise ValueError("Le format de sortie doit être .mp4 ou .gif")
+    if view not in ("legacy", "frequency", "imbalance", "modulation"):
+        raise ValueError(f"Vue inconnue: {view}")
+    if view != "legacy":
+        fig, draw = presentation_view(r, view, frame_times, playback_speed)
+        _save(fig, draw, frame_times, output, fps)
+        return
     fig = plt.figure(figsize=(12, 8), layout="constrained")
     grid = fig.add_gridspec(2, 2)
     ax_signal, ax_vec, ax_metrics = fig.add_subplot(grid[0, 0]), fig.add_subplot(grid[0, 1]), fig.add_subplot(grid[1, :])
@@ -28,8 +40,6 @@ def animate(result_file: str | Path, output: str | Path, fps: int = 20,
     ax_metrics.legend(ncol=2); ax_metrics.grid(True); ax_metrics.set_xlim(0, r.sample_times[-1])
     finite = np.r_[r.frequency_reference[np.isfinite(r.frequency_reference)], r.frequency[np.isfinite(r.frequency)], r.rocof[np.isfinite(r.rocof)]]
     if finite.size: ax_metrics.set_ylim(finite.min()-1, finite.max()+1)
-    count = min(max(2, int(r.sample_times[-1] * fps) + 1), 400)
-    frame_times = np.linspace(0, r.sample_times[-1], count)
 
     def draw(frame: int):
         now = frame_times[frame]
@@ -46,7 +56,20 @@ def animate(result_file: str | Path, output: str | Path, fps: int = 20,
             freq_line.set_data(r.estimate_times[:k+1], r.frequency[:k+1]); roc_line.set_data(r.estimate_times[:k+1], r.rocof[:k+1])
         fig.suptitle(f"t = {now:.3f} s — {parameter_label} — mode {'continu' if mode == 'continuous' else 'balayage indépendant'}")
         return tuple(ax_signal.lines) + (freq_line, roc_line)
-    ani = FuncAnimation(fig, draw, frames=count, interval=1000/fps, blit=False)
-    output = Path(output)
-    writer = PillowWriter(fps=fps) if output.suffix.lower() == ".gif" else FFMpegWriter(fps=fps)
-    ani.save(output, writer=writer); plt.close(fig)
+    _save(fig, draw, frame_times, output, fps)
+
+
+def _save(fig, draw, frame_times, output, fps):
+    output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if output.suffix.lower() == ".gif":
+            writer = PillowWriter(fps=fps)
+        else:
+            if not FFMpegWriter.isAvailable():
+                raise RuntimeError("Export MP4 : installer FFmpeg et ajouter son exécutable au PATH.")
+            writer = FFMpegWriter(fps=fps, codec="libx264",
+                                 extra_args=["-pix_fmt", "yuv420p", "-movflags", "+faststart"])
+        ani = FuncAnimation(fig, draw, frames=len(frame_times), interval=1000/fps, blit=False)
+        ani.save(output, writer=writer, dpi=120)
+    finally:
+        plt.close(fig)
