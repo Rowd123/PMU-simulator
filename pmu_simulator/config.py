@@ -74,6 +74,8 @@ class SimulationConfig:
 
     def __post_init__(self) -> None:
         self.frequency = Profile.parse(self.frequency)
+        if isinstance(self.amplitudes, (int, float, dict, Profile)):
+            self.amplitudes = (Profile.parse(self.amplitudes),) * 3
         self.amplitudes = tuple(Profile.parse(x) for x in self.amplitudes)  # type: ignore[assignment]
         self.angles_deg = tuple(Profile.parse(x) for x in self.angles_deg)  # type: ignore[assignment]
         if len(self.amplitudes) != 3 or len(self.angles_deg) != 3:

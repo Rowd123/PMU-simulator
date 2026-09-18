@@ -1,0 +1,27 @@
+{
+  "f0": 50,
+  "fs": 4800,
+  "reporting_rate": 50,
+  "duration": 10,
+  "seed": 1234,
+  "amplitudes": {
+    "kind": "sine",
+    "value": 230,
+    "amplitude": 46,
+    "modulation_frequency": 0.3,
+    "phase_deg": 0
+  },
+  "angles_deg": [
+    0,
+    -120,
+    120
+  ],
+  "noise_variances": 0,
+  "frequency": {
+    "kind": "sine",
+    "value": 50,
+    "amplitude": 0.5,
+    "modulation_frequency": 0.2,
+    "phase_deg": 0
+  }
+}
