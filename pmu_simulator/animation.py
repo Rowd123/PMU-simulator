@@ -16,7 +16,7 @@ def animate(result_file: str | Path, output: str | Path, fps: int = 20,
     output = Path(output)
     if output.suffix.lower() not in (".mp4", ".gif"):
         raise ValueError("Le format de sortie doit être .mp4 ou .gif")
-    if view not in ("legacy", "frequency", "imbalance", "modulation"):
+    if view not in ("legacy", "frequency", "imbalance", "modulation", "multicomponent"):
         raise ValueError(f"Vue inconnue: {view}")
     if view != "legacy":
         fig, draw = presentation_view(r, view, frame_times, playback_speed)
@@ -33,8 +33,9 @@ def animate(result_file: str | Path, output: str | Path, fps: int = 20,
     ax_vec.set(title="Phaseurs (plein) et séquences (pointillé)", xlabel="Partie réelle (V)", ylabel="Partie imaginaire (V)")
     ax_vec.axhline(0, color=".7"); ax_vec.axvline(0, color=".7"); ax_vec.set_aspect("equal")
     ax_metrics.set(xlabel="Temps (s)", ylabel="Fréquence (Hz) / ROCOF (Hz/s)", title="Estimations et références")
-    ax_metrics.plot(r.estimate_times, r.frequency_reference, "k--", label="Fréquence vraie")
-    ax_metrics.plot(r.estimate_times, r.rocof_reference, color=".5", ls="--", label="ROCOF vrai")
+    reference = "référence principale" if r.metadata.get("component_count", 1) > 1 else "référence"
+    ax_metrics.plot(r.estimate_times, r.frequency_reference, "k--", label=f"Fréquence — {reference}")
+    ax_metrics.plot(r.estimate_times, r.rocof_reference, color=".5", ls="--", label=f"ROCOF — {reference}")
     freq_line, = ax_metrics.plot([], [], "tab:purple", label="Fréquence estimée")
     roc_line, = ax_metrics.plot([], [], "tab:orange", label="ROCOF estimé")
     ax_metrics.legend(ncol=2); ax_metrics.grid(True); ax_metrics.set_xlim(0, r.sample_times[-1])

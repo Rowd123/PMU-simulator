@@ -128,3 +128,104 @@ physique régulière.
 `tests/test_experiments.py` vérifie les trois expériences, le calendrier vidéo,
 la lecture sans modification des NPZ, l'équilibre théorique et le résidu LS,
 le déséquilibre, les références FM et la révélation aux instants de transmission.
+
+## Superposition de plusieurs signaux triphasés
+
+`examples/multicomponent.json` ajoute une quatrième expérience avec **trois
+composantes équilibrées**. Chaque composante possède sa propre fréquence et ses
+amplitudes RMS. Le nombre de composantes est la longueur de `components` : ajouter
+ou supprimer un objet dans cette liste suffit, sans modifier le code.
+
+| Composante | Fréquence | Amplitude RMS par phase | Angles A, B, C |
+| --- | --- | --- | --- |
+| 1, référence principale | 50,5 Hz | 230 V | 0°, −120°, +120° |
+| 2 | 52 Hz | 20 V | 45°, −75°, 165° |
+| 3 | 55 Hz | 10 V | −30°, −150°, 90° |
+
+Cet exemple dure 10 s, utilise `fs=800 Hz`, `f0=50 Hz`, un bruit nul et une
+graine fixe. La transmission reste à **50 trames/s**, comme pour les autres
+expériences. Ces trois fréquences et amplitudes sont des valeurs d'exemple
+modifiables. Voici la forme minimale d'une liste équilibrée :
+
+```json
+"components": [
+  {"frequency": 50.5, "amplitudes": 230},
+  {"frequency": 52, "amplitudes": 20},
+  {"frequency": 55, "amplitudes": 10}
+]
+```
+
+Une amplitude scalaire (ou un seul profil d'amplitude) est partagée entre A, B et C.
+Les angles omis valent `[0, -120, 120]`. Pour une phase initiale commune β,
+utiliser `[β, β-120, β+120]`, comme dans le fichier fourni : chaque composante
+reste équilibrée. Une liste de trois amplitudes/profils et trois angles/profils
+permet aussi de créer un déséquilibre.
+
+Chaque `frequency`, amplitude et angle réutilise les profils `constant`, `step`,
+`ramp` et `sine`. Par exemple, une fréquence peut être remplacée par
+`{"kind": "ramp", "value": 50, "final": 51, "time": 2, "duration": 6}`.
+Les anciens JSON sans `components` continuent à décrire une seule composante.
+Si `components` est fourni, il remplace les champs historiques `frequency`,
+`amplitudes` et `angles_deg` à la racine ; la liste ne peut pas être vide.
+
+### Signal injecté et référence affichée
+
+Pour chaque phase p et chaque composante m, le générateur calcule :
+
+```math
+x_p(t)=\sqrt{2}\sum_{m=1}^{M} A_{p,m}(t)
+\cos\left(\theta_m(t)+\phi_{p,m}(t)\right)+\eta_p(t),
+\qquad \theta_m(t)=2\pi\int_0^t f_m(\tau)\,d\tau.
+```
+
+L'intégration conserve la règle trapézoïdale du simulateur, avec θₘ(0)=0.
+`amplitudes` exprime la valeur RMS de chaque composante sinusoïdale (la valeur
+crête est √2 fois plus grande), `frequency` est en Hz et `angles_deg` en degrés.
+Si un angle φ varie lui aussi, la fréquence de cette phase comprend également
+sa dérivée, dφ/dt divisée par 2π lorsque φ est exprimé en radians.
+
+Le bruit est ajouté **une seule fois après la somme**, avec les variances et la
+graine configurées. Le PMU reçoit uniquement les trois signaux totaux. Les
+estimateurs LS, fréquence/ROCOF, opérateurs en cache, composantes symétriques et
+calendrier de transmission sont inchangés. Les calculs de génération sont
+vectorisés sur les échantillons et les phases ; leur coût augmente linéairement
+avec le nombre de composantes. Les diagnostics conservés occupent eux aussi une
+mémoire proportionnelle à ce nombre.
+
+La première entrée de `components` définit la **référence principale** : les
+champs `true_*`, `frequency_reference` et `rocof_reference` se rapportent à cette
+composante, dans le repère nominal `f0`. L'interpolation au centre de la fenêtre
+LS et les dérivées numériques existantes sont conservées. Les estimations
+portent sur **le signal total**. Une superposition de fréquences distinctes ne
+possède pas une fréquence porteuse unique ; la fréquence PMU n'est ni la liste
+des fréquences injectées, ni leur moyenne. Les autres composantes peuvent
+produire des battements et perturber les estimations, même si chaque triplet est
+équilibré. Le LS à fréquence nominale fixe peut aussi donner un résidu de
+séquence inverse ; aucune estimation n'est forcée à zéro.
+
+Le NPZ contient en plus `generated_components`, un tableau sans bruit de forme
+`(nombre_de_composantes, nombre_d_echantillons, 3)`. Sa somme sur l'axe 0 donne
+le signal total avant bruit. `samples` contient le signal effectivement injecté.
+Les métadonnées conservent les profils, `component_count` et
+`reference_component_index=0`. Les anciens NPZ restent lisibles ; leur champ
+`generated_components` vaut `None` après chargement.
+
+### Simulation et vidéo
+
+```bash
+pmu-sim simulate examples/multicomponent.json -o results/multicomponent.npz
+pmu-sim animate results/multicomponent.npz -o videos/multicomponent.mp4 --view multicomponent --fps 30 --playback-speed 1
+# Export GIF possible :
+pmu-sim animate results/multicomponent.npz -o videos/multicomponent.gif --view multicomponent --fps 20 --playback-speed 0.5
+```
+
+La vue `multicomponent` compare amplitude et phase de V1, puis fréquence :
+« Référence (composante principale) » et « Estimation PMU (signal total) ».
+`--playback-speed` et `--fps` ne modifient ni le signal ni les transmissions.
+La vue `--view legacy` permet également de voir les trois signaux totaux dans
+une fenêtre glissante d'une période nominale.
+
+`tests/test_multicomponent.py` vérifie les sommes analytiques, les profils
+temporels par composante, l'équilibre, l'extension au-delà de trois composantes,
+le bruit, la référence principale, la linéarité des phaseurs LS, la cadence et
+la compatibilité des anciens formats.

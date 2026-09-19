@@ -1,0 +1,25 @@
+{
+  "f0": 50,
+  "fs": 800,
+  "reporting_rate": 50,
+  "duration": 10,
+  "seed": 1234,
+  "components": [
+    {
+      "frequency": 50.5,
+      "amplitudes": 230,
+      "angles_deg": [0, -120, 120]
+    },
+    {
+      "frequency": 52,
+      "amplitudes": 20,
+      "angles_deg": [45, -75, 165]
+    },
+    {
+      "frequency": 55,
+      "amplitudes": 10,
+      "angles_deg": [-30, -150, 90]
+    }
+  ],
+  "noise_variances": [0, 0, 0]
+}

@@ -32,6 +32,8 @@ def presentation_view(r, view, frame_times, playback_speed):
     traces, vectors = [], []
     colors = ("#BA641D", "#168578", "#6D69B4")
     duration = r.metadata["config"]["duration"]
+    multicomponent = view == "multicomponent" or r.metadata.get("component_count", 1) > 1
+    reference_label = "référence principale" if multicomponent else "référence"
 
     def chart(ax, series, ylabel):
         for values, label, color, style in series:
@@ -47,8 +49,9 @@ def presentation_view(r, view, frame_times, playback_speed):
         ax.legend(loc="upper left", ncol=2, fontsize=9)
 
     def pair(ref, est):
-        return [(ref, "Référence", "#323D48", "--"),
-                (est, "Estimation PMU", colors[1], "-")]
+        ref_label = "Référence (composante principale)" if multicomponent else "Référence"
+        est_label = "Estimation PMU (signal total)" if multicomponent else "Estimation PMU"
+        return [(ref, ref_label, "#323D48", "--"), (est, est_label, colors[1], "-")]
 
     if view == "imbalance":
         grid = fig.add_gridspec(2, 2)
@@ -66,7 +69,7 @@ def presentation_view(r, view, frame_times, playback_speed):
             ax.legend(loc="upper left", fontsize=8)
         ax = fig.add_subplot(grid[1, :])
         chart(ax, [(np.abs(estimated[:, j]), f"|V{j}| PMU", colors[j], "-") for j in range(3)] +
-              [(np.abs(reference[:, j]), f"|V{j}| référence", colors[j], "--") for j in range(3)], "Amplitude (V RMS)")
+              [(np.abs(reference[:, j]), f"|V{j}| {reference_label}", colors[j], "--") for j in range(3)], "Amplitude (V RMS)")
         ax.set_xlabel("Temps représentatif de la mesure (s)")
         title = "Déséquilibre angulaire"
     else:
@@ -79,9 +82,10 @@ def presentation_view(r, view, frame_times, playback_speed):
         chart(axes[2], pair(r.frequency_reference[src], freq), "Fréquence (Hz)")
         if view == "modulation":
             chart(axes[3], [(np.abs(estimated[:, j]), f"|V{j}| PMU", colors[j], "-") for j in (0, 2)] +
-                  [(np.abs(reference[:, j]), f"|V{j}| référence", colors[j], "--") for j in (0, 2)], "Résidus (V RMS)")
+                  [(np.abs(reference[:, j]), f"|V{j}| {reference_label}", colors[j], "--") for j in (0, 2)], "Résidus (V RMS)")
         axes[-1].set_xlabel("Temps représentatif de la mesure (s)")
-        title = "AM / FM équilibrée" if view == "modulation" else "Variation de fréquence"
+        title = {"modulation": "AM / FM équilibrée",
+                 "multicomponent": "Superposition de composantes"}.get(view, "Variation de fréquence")
     heading = fig.suptitle("")
 
     def draw(frame):

@@ -34,15 +34,19 @@ class SimulationResults:
     report_rocof: np.ndarray
     report_frequency_valid: np.ndarray
     metadata: dict
+    generated_components: np.ndarray | None = None  # signaux propres, axes (composante, échantillon, phase)
 
     def save(self, path: str | Path) -> None:
-        arrays = {f.name: getattr(self, f.name) for f in fields(self) if f.name != "metadata"}
+        arrays = {f.name: getattr(self, f.name) for f in fields(self)
+                  if f.name != "metadata" and getattr(self, f.name) is not None}
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(path, **arrays, metadata=np.array(json.dumps(self.metadata)))
 
     @classmethod
     def load(cls, path: str | Path) -> "SimulationResults":
         with np.load(path, allow_pickle=False) as data:
-            args = {f.name: data[f.name] for f in fields(cls) if f.name != "metadata"}
+            # Les anciens NPZ ne contiennent pas les composantes de diagnostic.
+            args = {f.name: data[f.name] for f in fields(cls)
+                    if f.name != "metadata" and f.name in data}
             args["metadata"] = json.loads(str(data["metadata"]))
         return cls(**args)
