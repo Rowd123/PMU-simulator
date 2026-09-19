@@ -57,6 +57,23 @@ def _default_angles() -> tuple[Profile, ...]:
 
 
 @dataclass
+class SignalComponent:
+    """Une porteuse triphasée ; amplitude partagée et angles par défaut équilibrés."""
+    frequency: Profile = field(default_factory=lambda: Profile(value=50.0))
+    amplitudes: tuple[Profile, Profile, Profile] = field(default_factory=_default_amplitudes)
+    angles_deg: tuple[Profile, Profile, Profile] = field(default_factory=_default_angles)
+
+    def __post_init__(self) -> None:
+        self.frequency = Profile.parse(self.frequency)
+        if isinstance(self.amplitudes, (int, float, dict, Profile)):
+            self.amplitudes = (Profile.parse(self.amplitudes),) * 3
+        self.amplitudes = tuple(Profile.parse(x) for x in self.amplitudes)  # type: ignore[assignment]
+        self.angles_deg = tuple(Profile.parse(x) for x in self.angles_deg)  # type: ignore[assignment]
+        if len(self.amplitudes) != 3 or len(self.angles_deg) != 3:
+            raise ValueError("amplitudes et angles_deg doivent avoir trois éléments")
+
+
+@dataclass
 class SimulationConfig:
     f0: float = 50.0
     fs: float = 4800.0
@@ -71,15 +88,25 @@ class SimulationConfig:
     frequency_window: int | None = None
     angle_threshold: float = 1e-9
     absolute_start: str | None = None
+    components: tuple[SignalComponent, ...] | None = None
 
     def __post_init__(self) -> None:
-        self.frequency = Profile.parse(self.frequency)
-        if isinstance(self.amplitudes, (int, float, dict, Profile)):
-            self.amplitudes = (Profile.parse(self.amplitudes),) * 3
-        self.amplitudes = tuple(Profile.parse(x) for x in self.amplitudes)  # type: ignore[assignment]
-        self.angles_deg = tuple(Profile.parse(x) for x in self.angles_deg)  # type: ignore[assignment]
-        if len(self.amplitudes) != 3 or len(self.angles_deg) != 3:
-            raise ValueError("amplitudes et angles_deg doivent avoir trois éléments")
+        if self.components is None:
+            primary = SignalComponent(self.frequency, self.amplitudes, self.angles_deg)
+        else:
+            if not isinstance(self.components, (list, tuple)) or not self.components:
+                raise ValueError("components doit être une liste non vide de composantes")
+            if any(not isinstance(c, (dict, SignalComponent)) for c in self.components):
+                raise ValueError("chaque composante doit être un objet de configuration")
+            self.components = tuple(
+                c if isinstance(c, SignalComponent) else SignalComponent(**c)
+                for c in self.components
+            )
+            primary = self.components[0]
+        # Avec components, les anciens attributs désignent la composante principale.
+        self.frequency, self.amplitudes, self.angles_deg = (
+            primary.frequency, primary.amplitudes, primary.angles_deg
+        )
         if np.isscalar(self.noise_variances):
             self.noise_variances = (float(self.noise_variances),) * 3
         self.noise_variances = tuple(float(x) for x in self.noise_variances)  # type: ignore[assignment]
@@ -97,6 +124,13 @@ class SimulationConfig:
             raise ValueError("frequency_window doit être supérieur ou égal à 3")
 
     @property
+    def signal_components(self) -> tuple[SignalComponent, ...]:
+        """Normalise aussi le format historique, sans figer ses attributs mutables."""
+        if self.components is not None:
+            return self.components
+        return (SignalComponent(self.frequency, self.amplitudes, self.angles_deg),)
+
+    @property
     def N(self) -> int:
         return self.phasor_window or round(self.fs / self.f0)
 
@@ -109,4 +143,10 @@ class SimulationConfig:
         return cls(**json.loads(Path(path).read_text(encoding="utf-8")))
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        if self.components is None:
+            del data["components"]
+        else:
+            for name in ("frequency", "amplitudes", "angles_deg"):
+                del data[name]
+        return data

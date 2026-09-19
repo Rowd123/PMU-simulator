@@ -14,7 +14,7 @@ def main() -> None:
     anim.add_argument("--parameter", default="scénario nominal")
     anim.add_argument("--playback-speed", type=float, default=1.0,
                       help="Vitesse de lecture : 2 = deux fois plus rapide, 0.5 = deux fois plus lent")
-    anim.add_argument("--view", choices=("legacy", "frequency", "imbalance", "modulation"), default="legacy")
+    anim.add_argument("--view", choices=("legacy", "frequency", "imbalance", "modulation", "multicomponent"), default="legacy")
     args = parser.parse_args()
     if args.command == "simulate": run_simulation(SimulationConfig.load(args.config)).save(args.output)
     else: animate(args.results, args.output, args.fps, args.mode, args.parameter, args.playback_speed, args.view)

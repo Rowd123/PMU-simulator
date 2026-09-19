@@ -57,4 +57,6 @@ def run_simulation(config: SimulationConfig) -> SimulationResults:
         {"config": config.to_dict(), "phasor_window_samples": config.N,
          "phasor_window_duration_s": pe.window_duration, "frequency_window_samples": config.M,
          "absolute_start": config.absolute_start,
-         "sequence_order": ["homopolaire", "directe", "inverse"]})
+         "sequence_order": ["homopolaire", "directe", "inverse"],
+         "reference_component_index": 0, "component_count": len(config.signal_components)},
+        generated_components=generated.generated_components)
